@@ -1,0 +1,9 @@
+{
+  "appId": "com.shopstock.ledger",
+  "appName": "Stock Ledger",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  }
+}
