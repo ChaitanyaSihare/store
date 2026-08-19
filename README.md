@@ -66,19 +66,4 @@ This builds a **debug** APK, which is fine for personal/single-shop use.
 If you ever want to distribute it more widely, that needs a signed
 release build — a different, slightly more involved step.
 
-## Honest caveats
 
-- I wrote this against the current `@capacitor-community/sqlite` and
-  `@capacitor/camera` APIs, but I haven't been able to run the actual
-  Android build in this environment — the first CI run may surface a
-  version mismatch or a missing native permission that needs a small
-  fix. If `assembleDebug` fails, the error message in the Actions log
-  will point at what to adjust, and I can help you fix it from that log.
-- Camera permission on Android is normally auto-merged into the manifest
-  by the Camera plugin, but if the photo picker doesn't prompt correctly
-  on first install, that's the first place to check.
-- Images are stored as base64 text inside the SQLite row for simplicity.
-  Fine for a few hundred–2000 items with modest photo sizes; if the app
-  ever feels slow to save, the next step is switching image storage to
-  the filesystem (saving a file path instead of the image itself) —
-  I can do that upgrade without changing anything else.
