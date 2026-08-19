@@ -1,0 +1,25 @@
+{
+  "name": "stock-ledger",
+  "version": "1.0.0",
+  "description": "Offline shoe / sandal / slipper stock ledger — Excel-style grid with photo cells and group browsing",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/db.js src/photo.js --bundle --outdir=www/js --format=iife --platform=browser",
+    "sync": "npm run build && npx cap sync",
+    "add:android": "npx cap add android",
+    "open:android": "npx cap open android",
+    "serve": "npm run build && npx http-server www -p 8080"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/camera": "^6.0.2",
+    "@capacitor-community/sqlite": "^6.0.2",
+    "jeep-sqlite": "^2.7.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "esbuild": "^0.21.5",
+    "http-server": "^14.1.1"
+  }
+}
