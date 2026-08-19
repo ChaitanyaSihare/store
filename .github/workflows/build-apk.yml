@@ -38,60 +38,8 @@ jobs:
       - name: Sync web assets + plugins into the Android project
         run: npx cap sync android
 
-      - name: Declare camera & storage permissions in AndroidManifest.xml
-        run: |
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          for PERM in \
-            "android.permission.CAMERA" \
-            "android.permission.READ_MEDIA_IMAGES" \
-            "android.permission.READ_EXTERNAL_STORAGE"
-          do
-            if ! grep -q "$PERM" "$MANIFEST"; then
-              sed -i "s#<application#<uses-permission android:name=\"$PERM\" />\n\n    <application#" "$MANIFEST"
-            fi
-          done
-
-      - name: Apply required SQLite Android setup (per capacitor-community/sqlite docs)
-        run: |
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-
-          # The plugin uses SQLCipher even for unencrypted DBs. Android's
-          # auto-backup/data-extraction system can interfere with that, so
-          # the plugin's own docs require disabling backup and pointing at
-          # an explicit data-extraction-rules resource.
-          mkdir -p android/app/src/main/res/xml
-          cat > android/app/src/main/res/xml/data_extraction_rules.xml << 'XML'
-          <?xml version="1.0" encoding="utf-8"?>
-          <data-extraction-rules>
-              <cloud-backup>
-                <exclude domain="root" />
-                <exclude domain="database" />
-                <exclude domain="sharedpref" />
-                <exclude domain="external" />
-              </cloud-backup>
-              <device-transfer>
-                <exclude domain="root" />
-                <exclude domain="database" />
-                <exclude domain="sharedpref" />
-                <exclude domain="external" />
-              </device-transfer>
-          </data-extraction-rules>
-          XML
-
-          if ! grep -q 'dataExtractionRules' "$MANIFEST"; then
-            sed -i 's#<application#<application\n        android:allowBackup="false"\n        android:fullBackupContent="false"\n        android:dataExtractionRules="@xml/data_extraction_rules"#' "$MANIFEST"
-          fi
-
-          # Required SDK/Gradle versions per plugin docs
-          VARS=android/variables.gradle
-          sed -i "s/minSdkVersion = .*/minSdkVersion = 23/" "$VARS"
-          sed -i "s/compileSdkVersion = .*/compileSdkVersion = 35/" "$VARS"
-          sed -i "s/targetSdkVersion = .*/targetSdkVersion = 35/" "$VARS"
-
-          echo "----- AndroidManifest.xml -----"
-          cat "$MANIFEST"
-          echo "----- variables.gradle -----"
-          cat "$VARS"
+      - name: Patch Android project (permissions, backup rules, SDK versions)
+        run: node scripts/patch-android.js
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
