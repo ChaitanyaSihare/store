@@ -28,8 +28,8 @@
     return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
-  function persist() {
-    Ledger.DB.saveState(state);
+  async function persist() {
+    return Ledger.DB.saveState(state);
   }
 
   function childGroups(parentId) {
@@ -68,14 +68,33 @@
     return null;
   }
 
+  function ancestorChain(groupId) {
+    const chain = [];
+    let g = state.groups.find(x => x.id === groupId);
+    while (g) {
+      chain.unshift(g);
+      g = g.parentId ? state.groups.find(x => x.id === g.parentId) : null;
+    }
+    return chain;
+  }
+
   function render() {
     const current = state.groups.find(g => g.id === currentGroupId) || null;
     $('groupTitle').textContent = current ? current.name : 'Groups';
-    $('backBtn').style.display = current ? 'inline-block' : 'none';
-    $('backBtn').onclick = () => {
-      const target = current && current.parentId ? `?group=${current.parentId}` : 'groups.html';
-      location.href = target;
-    };
+
+    // Breadcrumb: every ancestor is a clickable link, so you can jump
+    // straight to any level — not just one step back — to reach a
+    // sibling group without walking back up one tap at a time.
+    const crumbZone = $('breadcrumb');
+    const chain = current ? ancestorChain(currentGroupId) : [];
+    const parts = ['<a href="groups.html">🏠 All Groups</a>'];
+    chain.forEach((g, i) => {
+      const isLast = i === chain.length - 1;
+      parts.push(isLast
+        ? `<span class="crumb-current">${esc(g.name)}</span>`
+        : `<a href="?group=${g.id}">${esc(g.name)}</a>`);
+    });
+    crumbZone.innerHTML = parts.join(' <span class="crumb-sep">›</span> ');
 
     // Sub-groups — shown as image tiles (photo + label) like a shopping
     // app's category grid, not plain text pills.
@@ -154,12 +173,12 @@
     renderGallery();
   };
 
-  $('addGroupBtn').onclick = () => {
+  $('addGroupBtn').onclick = async () => {
     const name = $('newGroupInput').value.trim();
     if (!name) return;
     state.groups.push({ id: newId('g'), name, parentId: currentGroupId });
     $('newGroupInput').value = '';
-    persist();
+    await persist();
     render();
     Ledger.Gestures.toast('Group added');
   };

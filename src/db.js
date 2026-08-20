@@ -16,7 +16,6 @@ window.Ledger = window.Ledger || {};
 Ledger.DB = (function () {
   const DB_NAME = 'stockledger';
   let sqlite, db;
-  let saveTimer = null;
 
   function isNative() {
     return Capacitor.isNativePlatform();
@@ -63,13 +62,18 @@ Ledger.DB = (function () {
     return null;
   }
 
-  function saveState(state) {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => flush(state), 400);
+  // Writes used to be debounced 400ms, which created a real bug: if you
+  // navigated to another page (Sheet <-> Groups, or the photo-gallery
+  // deep link) within that window, the pending write was silently
+  // dropped — "sometimes saved, sometimes not." Since every call here
+  // already comes from a discrete action (an input's onchange on blur, a
+  // button tap) rather than every keystroke, there's no real need to
+  // debounce — write immediately instead.
+  async function saveState(state) {
+    return flush(state);
   }
 
   async function flush(state) {
-    clearTimeout(saveTimer);
     const json = JSON.stringify(state);
     await db.run(
       `INSERT INTO sheet_data (id, json) VALUES (1, ?)

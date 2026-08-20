@@ -41,6 +41,21 @@ Ledger.Sheet = (function () {
 
   let viewerRowId = null, viewerColId = null; // photo lightbox state
 
+  // Builds the text actually worth searching for a row: group cells are
+  // resolved to their human-readable path (not the internal ID stored in
+  // the cell — searching "Girl's" plain-text was silently failing before
+  // this, because the raw cell value is an opaque ID like "g1a2b3"), and
+  // image cells are skipped since their stored value is base64 photo
+  // data, not text worth matching against.
+  function rowSearchText(row) {
+    return state.columns.map(col => {
+      const val = row.cells[col.id];
+      if (col.type === 'group') return groupPath(val);
+      if (col.type === 'image') return '';
+      return val == null ? '' : String(val);
+    }).join(' ').toLowerCase();
+  }
+
   // Supports plain substring search across all cells, and a hierarchical
   // form using "/": e.g. "Girl's/Shoe/6" matches rows whose Group column
   // path contains "Girl's" and "Shoe", AND whose remaining cells contain
@@ -48,7 +63,7 @@ Ledger.Sheet = (function () {
   function rowMatchesQuery(row, rawQuery) {
     const q = rawQuery.trim();
     if (!q) return true;
-    const hay = Object.values(row.cells).join(' ').toLowerCase();
+    const hay = rowSearchText(row);
 
     const segments = q.split('/').map(s => s.trim()).filter(Boolean);
     if (segments.length > 1) {
@@ -73,7 +88,7 @@ Ledger.Sheet = (function () {
   }
 
   function persist() {
-    Ledger.DB.saveState(state);
+    return Ledger.DB.saveState(state);
   }
 
   function esc(s) {

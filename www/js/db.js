@@ -1852,7 +1852,6 @@
   Ledger.DB = /* @__PURE__ */ function() {
     const DB_NAME = "stockledger";
     let sqlite, db;
-    let saveTimer = null;
     function isNative() {
       return Capacitor.isNativePlatform();
     }
@@ -1888,12 +1887,10 @@
       }
       return null;
     }
-    function saveState(state) {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => flush(state), 400);
+    async function saveState(state) {
+      return flush(state);
     }
     async function flush(state) {
-      clearTimeout(saveTimer);
       const json = JSON.stringify(state);
       await db.run(
         `INSERT INTO sheet_data (id, json) VALUES (1, ?)
