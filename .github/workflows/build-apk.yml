@@ -29,6 +29,19 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Restore/cache debug signing key
+        # Without this, every CI run generates a brand-new debug keystore,
+        # so every APK is signed differently and Android refuses to
+        # install it over the previous version (silent failure — looks
+        # like "nothing changed" because the old app just keeps running).
+        # Caching this file means every build after the first reuses the
+        # same signature, so installing the new APK over the old one
+        # works like a normal app update.
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
       - name: Add Android platform (first run only)
         run: |
           if [ ! -d "android" ]; then
