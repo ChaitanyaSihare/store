@@ -1,12 +1,6 @@
 /*
   src/db.js — Backend / persistence layer (SOURCE — gets bundled by esbuild
   into www/js/db.js; don't edit www/js/db.js directly, it's generated).
-
-  The previous version assumed `window.CapacitorSQLite` would just exist in
-  the page. It doesn't — the plugin ships as an npm package meant to be
-  imported and bundled, which is exactly what was missing. That's the real
-  cause of "storage unavailable": the import silently failed, db.init()
-  threw, and app.js fell back to in-memory-only mode.
 */
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
@@ -33,24 +27,38 @@ Ledger.DB = (function () {
       await sqlite.initWebStore();
     }
 
-    // A connection to this DB may already be open from another page in the
-    // same app session — index.html -> groups.html is a real page
-    // navigation, but the native SQLite plugin instance survives it.
-    // Blindly calling createConnection() again, or open() on an
-    // already-open DB, both throw. So: try to reuse first, and check
-    // before opening.
+    // Trying to "reuse" a connection across pages (index.html <->
+    // groups.html) turned out to be fragile — bouncing between the two
+    // pages repeatedly could leave the connection in a broken state,
+    // which is what caused "storage unavailable" and the sheet appearing
+    // empty even though the data was never actually lost on disk.
+    // Simpler and more reliable: every page closes any leftover
+    // connection first, then always opens its own fresh one. Each page
+    // is expected to call Ledger.DB.close() when it's navigated away
+    // from (wired up via the 'pagehide' event in app.js / groups.js).
     try {
-      db = await sqlite.retrieveConnection(DB_NAME, false);
+      const isConn = (await sqlite.isConnection(DB_NAME, false)).result;
+      if (isConn) {
+        await sqlite.closeConnection(DB_NAME, false);
+      }
     } catch (e) {
-      db = await sqlite.createConnection(DB_NAME, false, 'no-encryption', 1, false);
+      // Nothing to close, or the check itself isn't supported yet — fine,
+      // createConnection below will surface any real problem.
     }
 
-    const openStatus = await db.isDBOpen();
-    if (!openStatus.result) {
-      await db.open();
-    }
-
+    db = await sqlite.createConnection(DB_NAME, false, 'no-encryption', 1, false);
+    await db.open();
     await db.execute(`CREATE TABLE IF NOT EXISTS sheet_data (id INTEGER PRIMARY KEY, json TEXT NOT NULL);`);
+  }
+
+  // Called when leaving a page, so the next page starts clean rather than
+  // fighting over a shared connection.
+  async function close() {
+    try {
+      if (sqlite) await sqlite.closeConnection(DB_NAME, false);
+    } catch (e) {
+      // Already closed or never opened — fine.
+    }
   }
 
   async function loadState() {
@@ -63,11 +71,10 @@ Ledger.DB = (function () {
   }
 
   // Writes used to be debounced 400ms, which created a real bug: if you
-  // navigated to another page (Sheet <-> Groups, or the photo-gallery
-  // deep link) within that window, the pending write was silently
-  // dropped — "sometimes saved, sometimes not." Since every call here
+  // navigated to another page within that window, the pending write was
+  // silently dropped — "sometimes saved, sometimes not." Every call here
   // already comes from a discrete action (an input's onchange on blur, a
-  // button tap) rather than every keystroke, there's no real need to
+  // button tap) rather than every keystroke, so there's no need to
   // debounce — write immediately instead.
   async function saveState(state) {
     return flush(state);
@@ -83,5 +90,5 @@ Ledger.DB = (function () {
     if (!isNative()) await sqlite.saveToStore(DB_NAME);
   }
 
-  return { init, loadState, saveState, flush };
+  return { init, close, loadState, saveState, flush };
 })();

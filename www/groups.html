@@ -13,7 +13,10 @@
 <header>
   <div class="title-row">
     <h1 id="groupTitle">Groups</h1>
-    <a href="index.html" class="groups-link">📋 Sheet</a>
+    <div class="header-actions">
+      <button id="groupMenuBtn" class="icon-link" style="display:none;">⋮ Edit</button>
+      <a href="index.html" class="groups-link">📋 Sheet</a>
+    </div>
   </div>
   <div id="breadcrumb" class="breadcrumb"></div>
 </header>
@@ -34,6 +37,22 @@
     <button id="loadMoreBtn" class="add-row-bar" style="display:none;">Load more</button>
   </section>
 </main>
+
+<!-- Rename/delete the group currently being viewed -->
+<div class="modal-overlay" id="groupMenuOverlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h2>Group options</h2>
+    <div class="field">
+      <label>Group name</label>
+      <input type="text" id="groupMenuNameInput">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="groupDeleteBtn">Delete group</button>
+      <button class="btn btn-primary" id="groupMenuSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
 
 <div id="toast"></div>
 

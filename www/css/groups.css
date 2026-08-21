@@ -3,6 +3,7 @@
   background:none; border:none; color:var(--accent); font-size:13px; font-weight:600;
   cursor:pointer; padding:0; margin-right:4px;
 }
+.header-actions{ display:flex; align-items:center; gap:12px; }
 .breadcrumb{
   font-size:11.5px; color:var(--ink-soft); margin-top:6px; line-height:1.6;
 }

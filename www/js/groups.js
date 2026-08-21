@@ -78,9 +78,18 @@
     return chain;
   }
 
+  // A group and every sub-group nested under it, however deep — needed so
+  // deleting a parent group doesn't leave orphaned children behind.
+  function descendantIds(groupId) {
+    const ids = [groupId];
+    childGroups(groupId).forEach(c => ids.push(...descendantIds(c.id)));
+    return ids;
+  }
+
   function render() {
     const current = state.groups.find(g => g.id === currentGroupId) || null;
     $('groupTitle').textContent = current ? current.name : 'Groups';
+    $('groupMenuBtn').style.display = current ? 'inline-block' : 'none';
 
     // Breadcrumb: every ancestor is a clickable link, so you can jump
     // straight to any level — not just one step back — to reach a
@@ -178,9 +187,62 @@
     if (!name) return;
     state.groups.push({ id: newId('g'), name, parentId: currentGroupId });
     $('newGroupInput').value = '';
-    await persist();
-    render();
-    Ledger.Gestures.toast('Group added');
+    render(); // update the screen immediately — don't wait on the save
+    try {
+      await persist();
+      Ledger.Gestures.toast('Group added');
+    } catch (e) {
+      console.error('Could not save new group:', e);
+      Ledger.Gestures.toast('Group added, but not saved (storage error)');
+    }
+  };
+
+  window.addEventListener('pagehide', () => { Ledger.DB.close(); });
+
+  // ---------- Rename / delete the currently-viewed group ----------
+  $('groupMenuBtn').onclick = () => {
+    const current = state.groups.find(g => g.id === currentGroupId);
+    if (!current) return;
+    $('groupMenuNameInput').value = current.name;
+    $('groupMenuOverlay').classList.add('open');
+  };
+  $('groupMenuOverlay').onclick = e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); };
+
+  $('groupMenuSaveBtn').onclick = () => {
+    const current = state.groups.find(g => g.id === currentGroupId);
+    const name = $('groupMenuNameInput').value.trim();
+    if (current && name) current.name = name;
+    $('groupMenuOverlay').classList.remove('open');
+    render(); // show the rename immediately
+    persist()
+      .then(() => Ledger.Gestures.toast('Group renamed'))
+      .catch(e => { console.error('Could not save rename:', e); Ledger.Gestures.toast('Renamed, but not saved (storage error)'); });
+  };
+
+  $('groupDeleteBtn').onclick = async () => {
+    const current = state.groups.find(g => g.id === currentGroupId);
+    if (!current) return;
+
+    // Cascade: remove this group and every sub-group beneath it, and
+    // unassign (not delete) any items that pointed at any of them —
+    // otherwise those items would silently point at a group ID that no
+    // longer exists.
+    const idsToRemove = new Set(descendantIds(current.id));
+    const gCol = groupColumn();
+    if (gCol) {
+      state.rows.forEach(r => {
+        if (idsToRemove.has(r.cells[gCol.id])) r.cells[gCol.id] = '';
+      });
+    }
+    state.groups = state.groups.filter(g => !idsToRemove.has(g.id));
+    $('groupMenuOverlay').classList.remove('open');
+
+    // We're about to navigate away (this group no longer exists, so
+    // there's nothing left to render here) — wait for the save to finish
+    // first this time, so the deletion isn't lost the way the earlier
+    // debounced-save bug used to lose changes on quick navigation.
+    try { await persist(); } catch (e) { console.error('Could not save group deletion:', e); }
+    location.href = current.parentId ? `?group=${current.parentId}` : 'groups.html';
   };
 
   async function boot() {

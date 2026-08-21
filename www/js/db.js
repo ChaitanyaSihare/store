@@ -1865,15 +1865,21 @@
         await sqlite.initWebStore();
       }
       try {
-        db = await sqlite.retrieveConnection(DB_NAME, false);
+        const isConn = (await sqlite.isConnection(DB_NAME, false)).result;
+        if (isConn) {
+          await sqlite.closeConnection(DB_NAME, false);
+        }
       } catch (e) {
-        db = await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
       }
-      const openStatus = await db.isDBOpen();
-      if (!openStatus.result) {
-        await db.open();
-      }
+      db = await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
+      await db.open();
       await db.execute(`CREATE TABLE IF NOT EXISTS sheet_data (id INTEGER PRIMARY KEY, json TEXT NOT NULL);`);
+    }
+    async function close() {
+      try {
+        if (sqlite) await sqlite.closeConnection(DB_NAME, false);
+      } catch (e) {
+      }
     }
     async function loadState() {
       const res = await db.query("SELECT json FROM sheet_data WHERE id = 1;");
@@ -1899,7 +1905,7 @@
       );
       if (!isNative()) await sqlite.saveToStore(DB_NAME);
     }
-    return { init, loadState, saveState, flush };
+    return { init, close, loadState, saveState, flush };
   }();
 })();
 /*! Bundled license information:

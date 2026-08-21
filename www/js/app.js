@@ -31,5 +31,10 @@
   $('searchInput').addEventListener('input', e => Ledger.Sheet.search(e.target.value));
   $('addRowBtn').onclick = () => Ledger.Sheet.addRow();
 
+  // Close the DB connection when leaving this page, so groups.html (or
+  // this page again) always opens a clean one instead of fighting over a
+  // shared connection.
+  window.addEventListener('pagehide', () => { Ledger.DB.close(); });
+
   boot();
 })();
